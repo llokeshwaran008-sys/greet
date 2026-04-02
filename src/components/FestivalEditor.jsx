@@ -4,6 +4,8 @@ import useImage from 'use-image'
 import { Save, ChevronLeft, Image as ImageIcon, MessageSquare, Calendar as CalendarIcon, Wand2, Download, FileText, ImageIcon as ImageGenericIcon, MessageCircle, Instagram, Facebook, Twitter, Share2 } from 'lucide-react'
 import { jsPDF } from 'jspdf'
 
+import { generateGreeting } from '../lib/ai'
+
 const CanvasPreview = ({ imageUrl, message, name, stageRef }) => {
   // Ensure we use Anonymous crossOrigin to prevent tainted canvas
   const [image] = useImage(imageUrl || 'https://via.placeholder.com/800x600/6366f1/ffffff?text=Choose+Image', 'Anonymous')
@@ -66,6 +68,7 @@ export default function FestivalEditor({ festival, onSave, onCancel }) {
     image_url: 'https://images.unsplash.com/photo-1540324155974-7523202daa3f?auto=format&fit=crop&q=80&w=800',
     is_active: true
   })
+  const [isGenerating, setIsGenerating] = useState(false)
 
   // Suggested backgrounds
   const suggestions = [
@@ -116,14 +119,27 @@ export default function FestivalEditor({ festival, onSave, onCancel }) {
     }
   }
 
-  const generateAImessage = () => {
-    const messages = [
-      `Wishing everyone a wonderful ${formData.name || 'festival'}! May your day be filled with joy.`,
-      `Happy ${formData.name || 'festival'} to our amazing team! Wishing you peace and prosperity.`,
-      `Sending warm wishes on ${formData.name || 'festival'}. Let's celebrate together!`
-    ]
-    const random = Math.floor(Math.random() * messages.length)
-    setFormData(prev => ({ ...prev, message: messages[random] }))
+  const generateAImessage = async () => {
+    if (!formData.name) {
+      alert("Please enter a festival name first!")
+      return
+    }
+
+    setIsGenerating(true)
+    try {
+      const greeting = await generateGreeting(formData.name)
+      setFormData(prev => ({ ...prev, message: greeting }))
+    } catch (err) {
+      alert("AI Generation failed. Using fallback messages instead.")
+      const messages = [
+        `Wishing everyone a wonderful ${formData.name}! May your day be filled with joy.`,
+        `Happy ${formData.name} to our amazing team! Wishing you peace and prosperity.`
+      ]
+      const random = Math.floor(Math.random() * messages.length)
+      setFormData(prev => ({ ...prev, message: messages[random] }))
+    } finally {
+      setIsGenerating(false)
+    }
   }
 
   return (
@@ -181,9 +197,11 @@ export default function FestivalEditor({ festival, onSave, onCancel }) {
                 </div>
                 <button 
                   onClick={generateAImessage}
-                  style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.75rem' }}
+                  disabled={isGenerating}
+                  style={{ background: 'none', border: 'none', color: isGenerating ? 'var(--text-muted)' : 'var(--primary)', cursor: isGenerating ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.75rem' }}
                 >
-                  <Wand2 size={12} /> AI Generate
+                  <Wand2 size={12} className={isGenerating ? 'animate-pulse' : ''} />
+                  {isGenerating ? 'Generating...' : 'AI Generate'}
                 </button>
               </label>
               <textarea
